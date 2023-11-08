@@ -63,7 +63,7 @@ import scala.quoted.{Quotes, Expr}
 object Scala3Example {
 
   inline def macroMethod: String =
-    ${ Scala2Example.macroMethodImpl }
+    ${ Scala3Example.macroMethodImpl }
 
   def macroMethodImpl(using Quotes): Expr[String] =
     '{ "some constant string" }
@@ -85,14 +85,142 @@ Why Scala 2 call it blackbox will be explained later.
 We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.
 --
 
+=== !
+
+[%step]
+[source, scala]
+--
+import scala.reflect.macros.blackbox
+
+object Scala2Example {
+  private def normalPrivateMethod: String = "result"
+  def normalPublicMethod: String = normalPrivateMethod
+
+  def macroMethod: String =
+    macro Scala2Example.macroMethodImpl
+
+  def macroMethodImpl(c: blackbox.Context): c.Expr[String] =
+    c.Expr(q""" _root_.Scala2Example.normalPublicMethod """)
+}
+--
+
+[%step]
+[source, scala]
+--
+import scala.quoted.{Quotes, Expr}
+
+object Scala3Example {
+  private def normalPrivateMethod: String = "result"
+  def normalPublicMethod: String = normalPrivateMethod
+
+  inline def macroMethod: String =
+    ${ Scala3Example.macroMethodImpl }
+
+  def macroMethodImpl(using Quotes): Expr[String] =
+    '{ normalPublicMethod }
+}
+--
+
+[NOTE.speaker]
+--
+We are ancouraged to use full qualified name in Scala 2 as it doesn't understand context in quasiquotes.
+
+If we used private method, compilation would fail since external code cannot access private methods.
+--
+
+=== !
+
+[%step]
+[source, scala]
+--
+object Scala2Example {
+  def macroMethod: String = macro macroMethodImpl
+
+  def macroMethodImpl(c: blackbox.Context): c.Expr[String] = {
+    val output = s"""${show(c.prefix.tree)}
+                    |${showCode(c.prefix.tree)}
+                    |${showRaw(c.prefix.tree)}
+                    |""".stripMargins
+    c.Expr(q"$output")
+  }
+}
+--
+
+[%step]
+[source, scala]
+--
+object Scala3Example {
+  inline def macroMethod: String =
+    ${ Scala3Example.macroMethodImpl('{ this }) }
+
+  def macroMethodImpl(thisExpr: Expr[Scala3Example.type])(
+    using Quotes
+  ): Expr[String] = Expr(
+    s"""${thisExpr.asTerm.show(using Printer.TreeCode)}
+       |${thisExpr.asTerm.show(using Printer.TreeAnsiCode)}
+       |${thisExpr.asTerm.show(using Printer.TreeStructure)}
+       |""".stripMargins)
+}
+--
+
+[NOTE.speaker]
+--
+--
+
+=== !
+
+[%step]
+[source, scala]
+--
+object Scala2Example {
+  def macroMethod[A](value: A): String =
+    macro Scala2Example.macroMethodImpl[A]
+  def macroMethodImpl[A: c.WeakTypeTag](
+    c: blackbox.Context
+  )(value: c.Expr[A]): c.Expr[String] = {
+    val output = s"""${show(c.prefix.tree)}
+                    |${showCode(c.prefix.tree)}
+                    |${showRaw(c.prefix.tree)}
+                    |""".stripMargins
+    c.Expr(q"$output")
+  }
+}
+--
+
+[%step]
+[source, scala]
+--
+object Scala3Example {
+  inline def macroMethod[A](value: A): String =
+    ${ Scala3Example.macroMethodImpl[A]('{ value }) }
+  def macroMethodImpl[A: scala.quoted.Type](
+    value: Expr[A]
+  )(using Quotes): Expr[String] = Expr(
+    s"""${value.asTerm.show(using Printer.TreeCode)}
+       |${value.asTerm.show(using Printer.TreeAnsiCode)}
+       |${value.asTerm.show(using Printer.TreeStructure)}
+       |""".stripMargins)
+}
+--
+
+[NOTE.speaker]
+--
+Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).
+
+Scala 2 require the same names and positions of parametrs in macro and in called impl definition.
+
+Scala 2 contains a special value for what was before macro, and Scala 3 requires us to pass it explicitly.
+--
+
 == TODO
 
 [%step]
+* print types
+* Scala 2 types vs Scala 3 types - WeakTypeTag (no higher kinded types) vs Type (<: AnyKind)
+* create a separate repo with examples
 * show that code can be checked by linters/for encapsulation
-* add WeakTypeTag/Type
 * implement printing type and value (printing type, printing expr, printing AST)
 * mention difference between "typed" Types and AST representation (converting to and from)
-* show some table with c.Expr, c.WeakTypeTag, c.TypeTag, c.Type, Expr, Type, reflect.Type
 * explain reporting - println vs blessed options
 * nice table with show/showCode/showRaw vs .show(using Printer....)
 * analyzing the type (primary constructor, methods etc)
@@ -102,9 +230,10 @@ We can already notice one difference: Scala 3 has "global" expressions while Sca
 * companion objects and default values (nice example with messed up Scala 2 companion, difference in naming)
 * children vs knownDirectSubtypes
 * generics (typeSignature, typeSignatureIn vs ...)
+* Scala 2 quasiquotes for... things vs... virtually nothing (type matches and that's it)
 * implicit summoning
 * macro bundles vs ... nothing really
-* whitebox macros vs transparent inline def
+* whitebox macros vs transparent inline def (Scala 2.12 requores Tree)
 
 == Questions?
 
