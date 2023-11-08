@@ -1,28 +1,111 @@
+// 45 minutes
+:revealjs_totalTime: 2700
+
 = Scala 2 vs Scala 3 macros
 
-== Slide One
+Mateusz Kubuszok
+
+== About me
 
 [%step]
-* Foo
-* Bar
-* World
-
-== Slide Two
-
-Hello World - Good Bye Cruel World
+* breaking things in Scala for 8+ years
+* breaking things for money for 10 years
+* breaking things for fun for 18(?) years
+* a little bit of open source - including co-authoring Chimney for 6 years now
+* blog at https://kubuszok.com[Kubuszok.com]
+* niche https://leanpub.com/jvm-scala-book[Things you need to know about JVM (that matter in Scala)] ebook
 
 [NOTE.speaker]
 --
-Actually things aren't that bad
+Every presentation should start with some excuse, why you even are here
 --
 
-== Source code
+== Agenda
 
+[%step]
+* I will focus on examples that I saw while maintaining my libraries
+* what is macro method
+* expressions and types
+* quotes and quasiquotes
+* compile time reflections
+* TODO
+* we don't focus on macro annotations
+
+[NOTE.speaker]
+--
+TODO
+--
+
+== Codegen pretending to be a method
+
+=== !
+
+[%step]
 [source, scala]
 --
-val test = task
-  .map(identity)
-  .flatMap(a => Something(b))
-  .runSyncUnsafe
-  // result
+import scala.reflect.macros.blackbox
+
+object Scala2Example {
+
+  def macroMethod: String =
+    macro Scala2Example.macroMethodImpl
+
+  def macroMethodImpl(c: blackbox.Context): c.Expr[String] =
+    c.Expr(q""" "some constant string" """)
+}
 --
+
+[%step]
+[source, scala]
+--
+import scala.quoted.{Quotes, Expr}
+
+object Scala3Example {
+
+  inline def macroMethod: String =
+    ${ Scala2Example.macroMethodImpl }
+
+  def macroMethodImpl(using Quotes): Expr[String] =
+    '{ "some constant string" }
+}
+--
+
+[NOTE.speaker]
+--
+The simplest kind of code, no value parameters, no type parameters, whole result can be constructed as a single (quasi)quote.
+
+Calling the impl method is the only thing we are allowed to do.
+
+Expr[A] is the AST of code that represents the value of type A.
+
+Impl has to be defined in a preceeding compilation unit to call site (macro referring to it can be in the same as call site).
+
+Why Scala 2 call it blackbox will be explained later.
+
+We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.
+--
+
+== TODO
+
+[%step]
+* show that code can be checked by linters/for encapsulation
+* add WeakTypeTag/Type
+* implement printing type and value (printing type, printing expr, printing AST)
+* mention difference between "typed" Types and AST representation (converting to and from)
+* show some table with c.Expr, c.WeakTypeTag, c.TypeTag, c.Type, Expr, Type, reflect.Type
+* explain reporting - println vs blessed options
+* nice table with show/showCode/showRaw vs .show(using Printer....)
+* analyzing the type (primary constructor, methods etc)
+* Symbols
+* some nice graphs illustrating relationships with Symbols (e.g. type parameters, value parameters, returned value)
+* Scala 2 vs Scala 3 - parameters lists (2 in Scala 2, one in Scala 3)
+* companion objects and default values (nice example with messed up Scala 2 companion, difference in naming)
+* children vs knownDirectSubtypes
+* generics (typeSignature, typeSignatureIn vs ...)
+* implicit summoning
+* macro bundles vs ... nothing really
+* whitebox macros vs transparent inline def
+
+== Questions?
+
+== Thank You!
