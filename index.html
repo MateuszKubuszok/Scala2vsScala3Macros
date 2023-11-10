@@ -418,107 +418,21 @@ ul.byline li + li {
 <aside class="notes"><div class="paragraph"><p>Every presentation should start with some excuse, why you even are here</p></div></aside></div></section>
 <section id="_agenda"><h2>Agenda</h2><div class="slide-content"><div class="ulist"><ul><li class="fragment"><p>I will focus on examples that I saw while maintaining my libraries</p></li><li class="fragment"><p>what is macro method</p></li><li class="fragment"><p>expressions and types</p></li><li class="fragment"><p>quotes and quasiquotes</p></li><li class="fragment"><p>compile time reflections</p></li><li class="fragment"><p>TODO</p></li><li class="fragment"><p>we don&#8217;t focus on macro annotations</p></li></ul></div>
 <aside class="notes"><div class="paragraph"><p>TODO</p></div></aside></div></section>
-<section><section id="_codegen_pretending_to_be_a_method"><h2>Codegen pretending to be a method</h2></section><section><div class="slide-content"><div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">import scala.reflect.macros.blackbox
-
-object Scala2Example {
-
-  def macroMethod: String =
-    macro Scala2Example.macroMethodImpl
-
-  def macroMethodImpl(c: blackbox.Context): c.Expr[String] =
-    c.Expr(q""" "some constant string" """)
-}</code></pre></div></div>
-<div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">import scala.quoted.{Quotes, Expr}
-
-object Scala3Example {
-
-  inline def macroMethod: String =
-    ${ Scala3Example.macroMethodImpl }
-
-  def macroMethodImpl(using Quotes): Expr[String] =
-    '{ "some constant string" }
-}</code></pre></div></div>
-<aside class="notes"><div class="paragraph"><p>The simplest kind of code, no value parameters, no type parameters, whole result can be constructed as a single (quasi)quote.</p></div>
-<div class="paragraph"><p>Calling the impl method is the only thing we are allowed to do.</p></div>
-<div class="paragraph"><p>Expr[A] is the AST of code that represents the value of type A.</p></div>
-<div class="paragraph"><p>Impl has to be defined in a preceeding compilation unit to call site (macro referring to it can be in the same as call site).</p></div>
-<div class="paragraph"><p>Why Scala 2 call it blackbox will be explained later.</p></div>
-<div class="paragraph"><p>We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.</p></div></aside></div></section><section><div class="slide-content"><div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">import scala.reflect.macros.blackbox
-
-object Scala2Example {
-  private def normalPrivateMethod: String = "result"
-  def normalPublicMethod: String = normalPrivateMethod
-
-  def macroMethod: String =
-    macro Scala2Example.macroMethodImpl
-
-  def macroMethodImpl(c: blackbox.Context): c.Expr[String] =
-    c.Expr(q""" _root_.Scala2Example.normalPublicMethod """)
-}</code></pre></div></div>
-<div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">import scala.quoted.{Quotes, Expr}
-
-object Scala3Example {
-  private def normalPrivateMethod: String = "result"
-  def normalPublicMethod: String = normalPrivateMethod
-
-  inline def macroMethod: String =
-    ${ Scala3Example.macroMethodImpl }
-
-  def macroMethodImpl(using Quotes): Expr[String] =
-    '{ normalPublicMethod }
-}</code></pre></div></div>
-<aside class="notes"><div class="paragraph"><p>We are ancouraged to use full qualified name in Scala 2 as it doesn&#8217;t understand context in quasiquotes.</p></div>
-<div class="paragraph"><p>If we used private method, compilation would fail since external code cannot access private methods.</p></div></aside></div></section><section><div class="slide-content"><div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">object Scala2Example {
-  def macroMethod: String = macro macroMethodImpl
-
-  def macroMethodImpl(c: blackbox.Context): c.Expr[String] = {
-    val output = s"""${show(c.prefix.tree)}
-                    |${showCode(c.prefix.tree)}
-                    |${showRaw(c.prefix.tree)}
-                    |""".stripMargins
-    c.Expr(q"$output")
-  }
-}</code></pre></div></div>
-<div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">object Scala3Example {
-  inline def macroMethod: String =
-    ${ Scala3Example.macroMethodImpl('{ this }) }
-
-  def macroMethodImpl(thisExpr: Expr[Scala3Example.type])(
-    using Quotes
-  ): Expr[String] = Expr(
-    s"""${thisExpr.asTerm.show(using Printer.TreeCode)}
-       |${thisExpr.asTerm.show(using Printer.TreeAnsiCode)}
-       |${thisExpr.asTerm.show(using Printer.TreeStructure)}
-       |""".stripMargins)
-}</code></pre></div></div>
-<aside class="notes"></aside></div></section><section><div class="slide-content"><div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">object Scala2Example {
-  def macroMethod[A](value: A): String =
-    macro Scala2Example.macroMethodImpl[A]
-  def macroMethodImpl[A: c.WeakTypeTag](
-    c: blackbox.Context
-  )(value: c.Expr[A]): c.Expr[String] = {
-    val output = s"""${show(c.prefix.tree)}
-                    |${showCode(c.prefix.tree)}
-                    |${showRaw(c.prefix.tree)}
-                    |""".stripMargins
-    c.Expr(q"$output")
-  }
-}</code></pre></div></div>
-<div class="listingblock fragment"><div class="content"><pre class="highlightjs highlight"><code class="language-scala hljs" data-noescape="true" data-lang="scala">object Scala3Example {
-  inline def macroMethod[A](value: A): String =
-    ${ Scala3Example.macroMethodImpl[A]('{ value }) }
-  def macroMethodImpl[A: scala.quoted.Type](
-    value: Expr[A]
-  )(using Quotes): Expr[String] = Expr(
-    s"""${value.asTerm.show(using Printer.TreeCode)}
-       |${value.asTerm.show(using Printer.TreeAnsiCode)}
-       |${value.asTerm.show(using Printer.TreeStructure)}
-       |""".stripMargins)
-}</code></pre></div></div>
-<aside class="notes"><div class="paragraph"><p>Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).</p></div>
+<section><section id="_what_is_macro_method"><h2>What is macro method?</h2><div class="slide-content"><div class="paragraph"><p>We can intuitively think that macro method is a code generator pretending to be some object&#8217;s method.</p></div><aside class="notes"><div class="paragraph"><p>We&#8217;ll explain what we mean by that in the next few examples. We&#8217;ll show how macros differ in behavior from normal method.</p></div></aside></div></section><section id="_lets_see_an_example_of_a_very_simple_macro"><h2>Let&#8217;s see an example of a very simple macro</h2><div class="slide-content"><div class="olist arabic"><ol class="arabic"><li class="fragment"><p>Calling the impl method is the only thing we are allowed to do.</p></li><li class="fragment"><p><code>Expr[A]</code> is the AST of code that represents the value of type <code>A</code>.</p></li><li class="fragment"><p>Why Scala 2 call it blackbox will be explained later.</p></li><li class="fragment"><p>We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.</p></li></ol></div>
+<aside class="notes"><div class="paragraph"><p>We&#8217;re start with the simplest code that returns a constant value (<code>01_simple_macro</code>).</p></div></aside></div></section><section id="_can_the_ast_generation_be_in_a_different_place_than_macro_method"><h2>Can the AST generation be in a different place than macro method?</h2><div class="slide-content"><div class="olist arabic"><ol class="arabic"><li class="fragment"><p>Impl doesn&#8217;t have to be in the same definition as unquoting - it doesn&#8217;t even have to be in the same package!</p></li><li class="fragment"><p>Impl has to be defined in a preceeding compilation unit to call site (macro referring to it can be in the same as call site).</p></li></ol></div>
+<aside class="notes"><div class="paragraph"><p>Then we&#8217;re going to look at the example above but with classes (<code>02_macro_with_classes</code>).</p></div>
+<div class="paragraph"><p>This is the first trope that we shouldn&#8217;t treat macros as methods - they don&#8217;t even have to be define in the same place as what unquotes them.</p></div></aside></div></section><section id="_lets_call_some_method_in_the_macro"><h2>Let&#8217;s call some method in the macro</h2><div class="slide-content"><aside class="notes"><div class="paragraph"><p>Now let&#8217;s call some method in the same object as the macro (<code>03_calling_methods</code>).</p></div>
+<div class="paragraph"><p>We are ancouraged to use full qualified name in Scala 2 as it doesn&#8217;t understand context in quasiquotes.</p></div>
+<div class="paragraph"><p>If we used private method, compilation would fail since external code cannot access private methods (<code>04_calling_private</code>).</p></div>
+<div class="paragraph"><p>This is a first</p></div></aside></div></section><section id="_lets_try_printing_some_parameters"><h2>Let&#8217;s try printing some parameters</h2><div class="slide-content"><table class="tableblock frame-all grid-all fragment" style="width:100%"><colgroup><col style="width:50%"><col style="width:50%"></colgroup><tbody><tr><td class="tableblock halign-left valign-top"><p class="tableblock">Scala 2</p></td><td class="tableblock halign-left valign-top"><p class="tableblock">Scala 3</p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>(c: scala.reflect.macros.blackbox.Context)</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>(using quotes: scala.quoted.Quotes)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.WeakTypeTag[A]</code> (or <code>c.TypeTag[A]</code>)</p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>scala.quoted.Type[A]</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.Type</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>quotes.reflect.TypeRepr</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.Expr[A]</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>scala.quoted.Expr[A]</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.universe.Tree</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>quotes.reflect.Tree</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.prefix</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock">no counterpart</p></td></tr></table></div></section><section><div class="slide-content"><div class="paragraph"><p>TODO: typed to untyped and back again</p></div>
+<table class="tableblock frame-all grid-all" style="width:100%"><colgroup><col style="width:50%"><col style="width:50%"></colgroup><tbody><tr><td class="tableblock halign-left valign-top"><p class="tableblock">Scala 2</p></td><td class="tableblock halign-left valign-top"><p class="tableblock">Scala 3</p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>(c: scala.reflect.macros.blackbox.Context)</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>(using quotes: scala.quoted.Quotes)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.WeakTypeTag[A]</code> (or <code>c.TypeTag[A]</code>)</p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>scala.quoted.Type[A]</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.Type</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>quotes.reflect.TypeRepr</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.Expr[A]</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>scala.quoted.Expr[A]</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.universe.Tree</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>quotes.reflect.Tree</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>c.prefix</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock">no counterpart</p></td></tr></table></div></section><section><div class="slide-content"><table class="tableblock frame-all grid-all" style="width:100%"><colgroup><col style="width:50%"><col style="width:50%"></colgroup><tbody><tr><td class="tableblock halign-left valign-top"><p class="tableblock">Scala 2</p></td><td class="tableblock halign-left valign-top"><p class="tableblock">Scala 3</p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>show(expr)</code> or <code>showCode(expr)</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>expr.asTerm.show</code> or <code>expr.asTerm.show(using Printer.TreeCode)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock">no counterpart</p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>expr.asTerm.show(using Printer.TreeAnsiCode)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>showRaw(expr)</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>expr.asTerm.show(using Printer.TreeStrucrture)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>weakTypeOf[A].toString</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>TypeRepr.of[A].show</code> or <code>TypeRepr.of[A].show(using Printer.TypeReprCode)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock">no counterpart</p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>TypeRepr.of[A].show(using Printer.TypeReprAnsiCode)</code></p></td></tr><tr><td class="tableblock halign-left valign-top"><p class="tableblock"><code>showRaw(weakTypeOf[A])</code></p></td><td class="tableblock halign-left valign-top"><p class="tableblock"><code>TypeRepr.of[A].show(using Printer.TypeReprStructure)</code></p></td></tr></table>
+<aside class="notes"><div class="paragraph"><p>At first let&#8217;s print some parameters to see how printing works (<code>05_print_param</code>).</p></div>
+<div class="paragraph"><p>Then let&#8217;s try to print <code>this</code> (<code>06_print_this</code>).</p></div>
+<div class="paragraph"><p>Scala 2 always carries around what was "before" dot macro method name, Scala 3 requires explicit passing of this.</p></div>
+<div class="paragraph"><p>Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).</p></div>
 <div class="paragraph"><p>Scala 2 require the same names and positions of parametrs in macro and in called impl definition.</p></div>
 <div class="paragraph"><p>Scala 2 contains a special value for what was before macro, and Scala 3 requires us to pass it explicitly.</p></div></aside></div></section></section>
-<section id="_todo"><h2>TODO</h2><div class="slide-content"><div class="ulist"><ul><li class="fragment"><p>print types</p></li><li class="fragment"><p>Scala 2 types vs Scala 3 types - WeakTypeTag (no higher kinded types) vs Type (&lt;: AnyKind)</p></li><li class="fragment"><p>create a separate repo with examples</p></li><li class="fragment"><p>show that code can be checked by linters/for encapsulation</p></li><li class="fragment"><p>implement printing type and value (printing type, printing expr, printing AST)</p></li><li class="fragment"><p>mention difference between "typed" Types and AST representation (converting to and from)</p></li><li class="fragment"><p>explain reporting - println vs blessed options</p></li><li class="fragment"><p>nice table with show/showCode/showRaw vs .show(using Printer&#8230;&#8203;.)</p></li><li class="fragment"><p>analyzing the type (primary constructor, methods etc)</p></li><li class="fragment"><p>Symbols</p></li><li class="fragment"><p>some nice graphs illustrating relationships with Symbols (e.g. type parameters, value parameters, returned value)</p></li><li class="fragment"><p>Scala 2 vs Scala 3 - parameters lists (2 in Scala 2, one in Scala 3)</p></li><li class="fragment"><p>companion objects and default values (nice example with messed up Scala 2 companion, difference in naming)</p></li><li class="fragment"><p>children vs knownDirectSubtypes</p></li><li class="fragment"><p>generics (typeSignature, typeSignatureIn vs &#8230;&#8203;)</p></li><li class="fragment"><p>Scala 2 quasiquotes for&#8230;&#8203; things vs&#8230;&#8203; virtually nothing (type matches and that&#8217;s it)</p></li><li class="fragment"><p>implicit summoning</p></li><li class="fragment"><p>macro bundles vs &#8230;&#8203; nothing really</p></li><li class="fragment"><p>whitebox macros vs transparent inline def (Scala 2.12 requores Tree)</p></li></ul></div></div></section>
+<section id="_todo"><h2>TODO</h2><div class="slide-content"><div class="ulist"><ul><li class="fragment"><p>Scala 2 types vs Scala 3 types - WeakTypeTag (no higher kinded types) vs Type (&lt;: AnyKind)</p></li><li class="fragment"><p>show that code can be checked by linters/for encapsulation</p></li><li class="fragment"><p>mention difference between "typed" Types and AST representation (converting to and from)</p></li><li class="fragment"><p>explain reporting - println vs blessed options</p></li><li class="fragment"><p>nice table with show/showCode/showRaw vs .show(using Printer&#8230;&#8203;.)</p></li><li class="fragment"><p>analyzing the type (primary constructor, methods etc)</p></li><li class="fragment"><p>Symbols</p></li><li class="fragment"><p>some nice graphs illustrating relationships with Symbols (e.g. type parameters, value parameters, returned value)</p></li><li class="fragment"><p>Scala 2 vs Scala 3 - parameters lists (2 in Scala 2, one in Scala 3)</p></li><li class="fragment"><p>companion objects and default values (nice example with messed up Scala 2 companion, difference in naming)</p></li><li class="fragment"><p>children vs knownDirectSubtypes</p></li><li class="fragment"><p>generics (typeSignature, typeSignatureIn vs &#8230;&#8203;)</p></li><li class="fragment"><p>Scala 2 quasiquotes for&#8230;&#8203; things vs&#8230;&#8203; virtually nothing (type matches and that&#8217;s it)</p></li><li class="fragment"><p>implicit summoning</p></li><li class="fragment"><p>macro bundles vs &#8230;&#8203; nothing really</p></li><li class="fragment"><p>whitebox macros vs transparent inline def (Scala 2.12 requores Tree)</p></li></ul></div></div></section>
 <section id="_questions"><h2>Questions?</h2></section>
 <section id="_thank_you"><h2>Thank You!</h2></section></div></div><script src="./reveal.js/dist/reveal.js"></script><script>Array.prototype.slice.call(document.querySelectorAll('.slides section')).forEach(function(slide) {
   if (slide.getAttribute('data-background-color')) return;

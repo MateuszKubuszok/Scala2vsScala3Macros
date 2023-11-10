@@ -44,3 +44,5 @@ $heading4Size: 1.0em;
 // Theme template ------------------------------
 @import "../template/theme";
 // ---------------------------------------------
+
+.tableblock { margin: 0; font-size: $mainFontSize * 0.35; line-height: $mainFontSize * 0.35; }

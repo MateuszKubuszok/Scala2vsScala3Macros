@@ -36,175 +36,147 @@ Every presentation should start with some excuse, why you even are here
 TODO
 --
 
-== Codegen pretending to be a method
+== What is macro method?
 
-=== !
-
-[%step]
-[source, scala]
---
-import scala.reflect.macros.blackbox
-
-object Scala2Example {
-
-  def macroMethod: String =
-    macro Scala2Example.macroMethodImpl
-
-  def macroMethodImpl(c: blackbox.Context): c.Expr[String] =
-    c.Expr(q""" "some constant string" """)
-}
---
-
-[%step]
-[source, scala]
---
-import scala.quoted.{Quotes, Expr}
-
-object Scala3Example {
-
-  inline def macroMethod: String =
-    ${ Scala3Example.macroMethodImpl }
-
-  def macroMethodImpl(using Quotes): Expr[String] =
-    '{ "some constant string" }
-}
---
+We can intuitively think that macro method is a code generator pretending to be some object's method.
 
 [NOTE.speaker]
 --
-The simplest kind of code, no value parameters, no type parameters, whole result can be constructed as a single (quasi)quote.
-
-Calling the impl method is the only thing we are allowed to do.
-
-Expr[A] is the AST of code that represents the value of type A.
-
-Impl has to be defined in a preceeding compilation unit to call site (macro referring to it can be in the same as call site).
-
-Why Scala 2 call it blackbox will be explained later.
-
-We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.
+We'll explain what we mean by that in the next few examples. We'll show how macros differ in behavior from normal method.
 --
 
-=== !
+=== Let's see an example of a very simple macro
 
 [%step]
-[source, scala]
---
-import scala.reflect.macros.blackbox
-
-object Scala2Example {
-  private def normalPrivateMethod: String = "result"
-  def normalPublicMethod: String = normalPrivateMethod
-
-  def macroMethod: String =
-    macro Scala2Example.macroMethodImpl
-
-  def macroMethodImpl(c: blackbox.Context): c.Expr[String] =
-    c.Expr(q""" _root_.Scala2Example.normalPublicMethod """)
-}
---
-
-[%step]
-[source, scala]
---
-import scala.quoted.{Quotes, Expr}
-
-object Scala3Example {
-  private def normalPrivateMethod: String = "result"
-  def normalPublicMethod: String = normalPrivateMethod
-
-  inline def macroMethod: String =
-    ${ Scala3Example.macroMethodImpl }
-
-  def macroMethodImpl(using Quotes): Expr[String] =
-    '{ normalPublicMethod }
-}
---
+1. Calling the impl method is the only thing we are allowed to do.
+2. ``Expr[A]`` is the AST of code that represents the value of type ``A``.
+3. Why Scala 2 call it blackbox will be explained later.
+4. We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.
 
 [NOTE.speaker]
 --
+We're start with the simplest code that returns a constant value (``01_simple_macro``).
+--
+
+=== Can the AST generation be in a different place than macro method?
+
+[%step]
+1. Impl doesn't have to be in the same definition as unquoting - it doesn't even have to be in the same package!
+2. Impl has to be defined in a preceeding compilation unit to call site (macro referring to it can be in the same as call site).
+
+[NOTE.speaker]
+--
+Then we're going to look at the example above but with classes (``02_macro_with_classes``).
+
+This is the first trope that we shouldn't treat macros as methods - they don't even have to be define in the same place as what unquotes them.
+--
+
+=== Let's call some method in the macro
+
+[NOTE.speaker]
+--
+Now let's call some method in the same object as the macro (``03_calling_methods``).
+
 We are ancouraged to use full qualified name in Scala 2 as it doesn't understand context in quasiquotes.
 
-If we used private method, compilation would fail since external code cannot access private methods.
+If we used private method, compilation would fail since external code cannot access private methods (``04_calling_private``).
+
+This is a first
 --
+
+=== Let's try printing some parameters
+
+[%step]
+[cols="1,1",%autowidth]
+|===
+| Scala 2
+| Scala 3
+
+| ``(c: scala.reflect.macros.blackbox.Context)``
+| ``(using quotes: scala.quoted.Quotes)``
+
+| ``c.WeakTypeTag[A]`` (or ``c.TypeTag[A]``)
+| ``scala.quoted.Type[A]``
+
+| ``c.Type``
+| ``quotes.reflect.TypeRepr``
+
+| ``c.Expr[A]``
+| ``scala.quoted.Expr[A]``
+
+| ``c.universe.Tree``
+| ``quotes.reflect.Tree``
+
+| ``c.prefix``
+| no counterpart
+
+|===
 
 === !
 
-[%step]
-[source, scala]
---
-object Scala2Example {
-  def macroMethod: String = macro macroMethodImpl
+TODO: typed to untyped and back again
 
-  def macroMethodImpl(c: blackbox.Context): c.Expr[String] = {
-    val output = s"""${show(c.prefix.tree)}
-                    |${showCode(c.prefix.tree)}
-                    |${showRaw(c.prefix.tree)}
-                    |""".stripMargins
-    c.Expr(q"$output")
-  }
-}
---
+[cols="1,1",%autowidth]
+|===
+| Scala 2
+| Scala 3
 
-[%step]
-[source, scala]
---
-object Scala3Example {
-  inline def macroMethod: String =
-    ${ Scala3Example.macroMethodImpl('{ this }) }
+| ``(c: scala.reflect.macros.blackbox.Context)``
+| ``(using quotes: scala.quoted.Quotes)``
 
-  def macroMethodImpl(thisExpr: Expr[Scala3Example.type])(
-    using Quotes
-  ): Expr[String] = Expr(
-    s"""${thisExpr.asTerm.show(using Printer.TreeCode)}
-       |${thisExpr.asTerm.show(using Printer.TreeAnsiCode)}
-       |${thisExpr.asTerm.show(using Printer.TreeStructure)}
-       |""".stripMargins)
-}
---
+| ``c.WeakTypeTag[A]`` (or ``c.TypeTag[A]``)
+| ``scala.quoted.Type[A]``
 
-[NOTE.speaker]
---
---
+| ``c.Type``
+| ``quotes.reflect.TypeRepr``
+
+| ``c.Expr[A]``
+| ``scala.quoted.Expr[A]``
+
+| ``c.universe.Tree``
+| ``quotes.reflect.Tree``
+
+| ``c.prefix``
+| no counterpart
+
+|===
+
 
 === !
 
-[%step]
-[source, scala]
---
-object Scala2Example {
-  def macroMethod[A](value: A): String =
-    macro Scala2Example.macroMethodImpl[A]
-  def macroMethodImpl[A: c.WeakTypeTag](
-    c: blackbox.Context
-  )(value: c.Expr[A]): c.Expr[String] = {
-    val output = s"""${show(c.prefix.tree)}
-                    |${showCode(c.prefix.tree)}
-                    |${showRaw(c.prefix.tree)}
-                    |""".stripMargins
-    c.Expr(q"$output")
-  }
-}
---
+[cols="1,1",%autowidth]
+|===
+| Scala 2
+| Scala 3
 
-[%step]
-[source, scala]
---
-object Scala3Example {
-  inline def macroMethod[A](value: A): String =
-    ${ Scala3Example.macroMethodImpl[A]('{ value }) }
-  def macroMethodImpl[A: scala.quoted.Type](
-    value: Expr[A]
-  )(using Quotes): Expr[String] = Expr(
-    s"""${value.asTerm.show(using Printer.TreeCode)}
-       |${value.asTerm.show(using Printer.TreeAnsiCode)}
-       |${value.asTerm.show(using Printer.TreeStructure)}
-       |""".stripMargins)
-}
---
+| ``show(expr)`` or ``showCode(expr)``
+| ``expr.asTerm.show`` or ``expr.asTerm.show(using Printer.TreeCode)``
+
+| no counterpart
+| ``expr.asTerm.show(using Printer.TreeAnsiCode)``
+
+| ``showRaw(expr)``
+| ``expr.asTerm.show(using Printer.TreeStrucrture)``
+
+| ``weakTypeOf[A].toString``
+| ``TypeRepr.of[A].show`` or ``TypeRepr.of[A].show(using Printer.TypeReprCode)``
+
+| no counterpart
+| ``TypeRepr.of[A].show(using Printer.TypeReprAnsiCode)``
+
+| ``showRaw(weakTypeOf[A])``
+| ``TypeRepr.of[A].show(using Printer.TypeReprStructure)``
+
+|===
 
 [NOTE.speaker]
 --
+At first let's print some parameters to see how printing works (``05_print_param``).
+
+Then let's try to print ``this`` (``06_print_this``).
+
+Scala 2 always carries around what was "before" dot macro method name, Scala 3 requires explicit passing of this.
+
 Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).
 
 Scala 2 require the same names and positions of parametrs in macro and in called impl definition.
@@ -215,11 +187,8 @@ Scala 2 contains a special value for what was before macro, and Scala 3 requires
 == TODO
 
 [%step]
-* print types
 * Scala 2 types vs Scala 3 types - WeakTypeTag (no higher kinded types) vs Type (<: AnyKind)
-* create a separate repo with examples
 * show that code can be checked by linters/for encapsulation
-* implement printing type and value (printing type, printing expr, printing AST)
 * mention difference between "typed" Types and AST representation (converting to and from)
 * explain reporting - println vs blessed options
 * nice table with show/showCode/showRaw vs .show(using Printer....)
