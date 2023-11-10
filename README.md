@@ -1,5 +1,7 @@
 # Scala 2 vs Scala 3 macros
 
+Examples are at https://github.com/MateuszKubuszok/Scala2vsScala3MacrosExamples
+
 ## Running
 
 ```
