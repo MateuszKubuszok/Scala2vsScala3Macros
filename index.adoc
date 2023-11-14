@@ -135,8 +135,14 @@ Scala 2 contains a special value for what was before macro, and Scala 3 requires
 | Scala 2
 | Scala 3
 
+| ``weakTypeOf[A]: c.Type``
+| ``TypeRepr.of[A]: TypeRepr``
+
 | ``c.WeakTypeTag[A](tpe: c.Type)``
 | ``(tpe: TypeRepr).asType.asInstanceOf[Type[A]]``
+
+| ``expr.tree``
+| ``expr.asTerm``
 
 | ``c.Expr[A](tree)``
 | ``tree.asExprOf[A]``
@@ -298,15 +304,15 @@ I can explain that Symbol is basically anything which can have a name or handle 
 Mention SIP-47 Clause Interleaving.
 --
 
-=== !
+== Building expressions
 
-case class | sealed
-pattern match
-  - sealed create all
-  - case class create if defaults
+Example:
 
-TODO: generics
-TODO: pattern matching and creating types
+[%step]
+- take a type of a ``case class``/``sealed trait``
+- try to create ``List`` with a value of this type
+  - for sealed, create all children that can be created
+  - for case class create a value if all params has default value
 
 == Building expressions
 
@@ -314,12 +320,6 @@ TODO: call constructor (using implicits as params)
 TODO: pattern maching
 
 == Skeletons in a closet
-
-TODO: generyczne typy w Scali 2 (konieczność type parameters)
-TODO: companion object w Scali 2 (ten cudowny kod + defaulty)
-TODO: generyki w Scali 3 (brak typeSignatureIn)
-TODO: flags to tylko flagi (przykład z public)
-TODO: fresh termy (przykład z val/var, function)
 
 == TODO
 
