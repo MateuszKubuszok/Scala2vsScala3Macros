@@ -23,13 +23,12 @@ Every presentation should start with some excuse, why you even are here
 == Agenda
 
 [%step]
-* I will focus on examples that I saw while maintaining my libraries
-* what is macro method
+* What is macro method?
 * expressions and types
 * quotes and quasiquotes
 * compile time reflections
-* TODO
-* we don't focus on macro annotations
+* I will focus on examples that I saw while maintaining my libraries
+* I will NOT focus on macro annotations
 
 [NOTE.speaker]
 --
@@ -56,6 +55,8 @@ We'll explain what we mean by that in the next few examples. We'll show how macr
 [NOTE.speaker]
 --
 We're start with the simplest code that returns a constant value (``01_simple_macro``).
+
+I can mention that expression is basically anything that computes a value.
 --
 
 === Can the AST generation be in a different place than macro method?
@@ -112,35 +113,44 @@ This is a first
 
 |===
 
-=== !
+[NOTE.speaker]
+--
+At first let's print some parameters to see how printing works (``05_print_param``).
 
-TODO: typed to untyped and back again
+Then let's try to print ``this`` (``06_print_this``).
+
+Scala 2 require the same names and positions of parametrs in macro and in called impl definition.
+
+Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).
+
+Typed representations exists to be passed around (as params/returns/implicits), untyped can be actually worked with.
+
+Scala 2 contains a special value for what was before macro, and Scala 3 requires us to pass it explicitly.
+--
+
+=== !
 
 [cols="1,1",%autowidth]
 |===
 | Scala 2
 | Scala 3
 
-| ``(c: scala.reflect.macros.blackbox.Context)``
-| ``(using quotes: scala.quoted.Quotes)``
+| ``c.WeakTypeTag[A](tpe: c.Type)``
+| ``(tpe: TypeRepr).asType.asInstanceOf[Type[A]]``
 
-| ``c.WeakTypeTag[A]`` (or ``c.TypeTag[A]``)
-| ``scala.quoted.Type[A]``
-
-| ``c.Type``
-| ``quotes.reflect.TypeRepr``
-
-| ``c.Expr[A]``
-| ``scala.quoted.Expr[A]``
-
-| ``c.universe.Tree``
-| ``quotes.reflect.Tree``
-
-| ``c.prefix``
-| no counterpart
+| ``c.Expr[A](tree)``
+| ``tree.asExprOf[A]``
 
 |===
 
+[NOTE.speaker]
+--
+``WeakTypeTag`` can only store proper types.
+
+``quoted.Type`` has ``AnyKind`` so it can also store type constructor.
+
+``asExprOf`` takes implicit ``Type``.
+--
 
 === !
 
@@ -184,14 +194,82 @@ Scala 2 require the same names and positions of parametrs in macro and in called
 Scala 2 contains a special value for what was before macro, and Scala 3 requires us to pass it explicitly.
 --
 
+=== !
+
+TODO: error reporting (07_...)
+
+== Analyzing types
+
+[%step]
+[cols="1,1",%autowidth]
+|===
+| Scala 2
+| Scala 3
+
+| ``(tpe: c.Type).typeSymbol``
+| ``(repr: TypeRepr).typeSymbol``
+
+| ``sym.isType`` / ``sym.isClass`` / ``sym.isModule`` / ``sym.isTerm``
+| ``sym.isType`` / ``sym.isClassDef`` / --- / ``sym.isTerm``
+
+| ``sym.asType``, ``sym.asClass``, ``sym.asModule``, ``sym.asTerm``
+| only 1 kind of ``Symbol``
+
+| ``sym.asClass.primaryConstructor``
+| ``sym.primaryConstructor``
+
+| ``NoSymbol``
+| ``Symbol.noSymbol``
+
+| ``(tpe: c.Type).decls``
+| ``sym.declaredFields`` / ``sym.declaredMethods``
+
+| ``(tpe: c.Type).members``
+| ``sym.fieldMembers`` / ``sym.methodMembers``
+
+|===
+
+[NOTE.speaker]
+--
+Let's try to see what information we can obtain from the type (``08_analyzing_type``).
+
+1. Scala 3 has no ``isModule`` - we need to check that something has ``Flag.Modules``
+2. Scala 2 name it ``isClass`` and Scala 3 ``isClassDef``
+3. When class nas no constructor it has a special ``NoSymbol`` value
+4. Scala 2 has ``members`` (all definitions, inherited or declared) and ``decls`` (only definitions defined in the type) in ``Type``, Scala 3 separated fields from methods and store them in ``Symbol``
+
+I can explain that Symbol is basically anything which can have a name or handle to be referred to.
+
+--
+
+=== !
+
+case class | sealed
+pattern match
+  - sealed create all
+  - case class create if defaults
+
+TODO: generics
+TODO: pattern matching and creating types
+
+== Building expressions
+
+TODO: call constructor (using implicits as params)
+TODO: pattern maching
+
+== Skeletons in a closet
+
+TODO: generyczne typy w Scali 2 (konieczność type parameters)
+TODO: companion object w Scali 2 (ten cudowny kod + defaulty)
+TODO: generyki w Scali 3 (brak typeSignatureIn)
+TODO: flags to tylko flagi (przykład z public)
+TODO: fresh termy (przykład z val/var, function)
+
 == TODO
 
 [%step]
-* Scala 2 types vs Scala 3 types - WeakTypeTag (no higher kinded types) vs Type (<: AnyKind)
 * show that code can be checked by linters/for encapsulation
-* mention difference between "typed" Types and AST representation (converting to and from)
 * explain reporting - println vs blessed options
-* nice table with show/showCode/showRaw vs .show(using Printer....)
 * analyzing the type (primary constructor, methods etc)
 * Symbols
 * some nice graphs illustrating relationships with Symbols (e.g. type parameters, value parameters, returned value)
