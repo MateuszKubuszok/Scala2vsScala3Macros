@@ -201,6 +201,11 @@ TODO: error reporting (07_...)
 == Analyzing types
 
 [%step]
+Symbol - a reference to definition (type/class/val/var/method/parameter/binding...).
+
+=== !
+
+[%step]
 [cols="1,1",%autowidth]
 |===
 | Scala 2
@@ -239,7 +244,58 @@ Let's try to see what information we can obtain from the type (``08_analyzing_ty
 4. Scala 2 has ``members`` (all definitions, inherited or declared) and ``decls`` (only definitions defined in the type) in ``Type``, Scala 3 separated fields from methods and store them in ``Symbol``
 
 I can explain that Symbol is basically anything which can have a name or handle to be referred to.
+--
 
+=== !
+
+[%step]
+[cols="1,1,1,1",%autowidth]
+|===
+|
+| ``typeParams`` (Scala 2)
+| ``paramLists`` (Scala 2)
+| ``paramSymss`` (Scala 3)
+
+| ``def method: Unit``
+| ``List()``
+| ``List()``
+| ``List()``
+
+| ``def method(): Unit``
+| ``List()``
+| ``List(List())``
+| ``List(List())``
+
+| ``def method(a: Int, b: String): Unit``
+| ``List()``
+| ``List(List(value a, value b))``
+| ``List(List(val a, val b))``
+
+| ``def method(a: Int)(b: String): Unit``
+| ``List()``
+| ``List(List(value a), List(value b))``
+| ``List(List(val a), List(val b))``
+
+| ``def method[A]: Unit``
+| ``List(type A)``
+| ``List()``
+| ``List(List(type A))``
+
+| ``def method[A](a: A): Unit``
+| ``List(type A)``
+| ``List(value a)``
+| ``List(List(type A), List(val b))``
+
+| ``extension [A](a: A) def method[b](b: B): Unit``
+|
+|
+| ``List(List(type A), List(val a), List(type B), List(val b))``
+
+|===
+
+[NOTE.speaker]
+--
+Mention SIP-47 Clause Interleaving.
 --
 
 === !
@@ -270,10 +326,7 @@ TODO: fresh termy (przykład z val/var, function)
 [%step]
 * show that code can be checked by linters/for encapsulation
 * explain reporting - println vs blessed options
-* analyzing the type (primary constructor, methods etc)
-* Symbols
 * some nice graphs illustrating relationships with Symbols (e.g. type parameters, value parameters, returned value)
-* Scala 2 vs Scala 3 - parameters lists (2 in Scala 2, one in Scala 3)
 * companion objects and default values (nice example with messed up Scala 2 companion, difference in naming)
 * children vs knownDirectSubtypes
 * generics (typeSignature, typeSignatureIn vs ...)
