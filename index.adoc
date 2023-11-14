@@ -23,16 +23,16 @@ Every presentation should start with some excuse, why you even are here
 == Agenda
 
 [%step]
-* What is macro method?
-* expressions and types
-* quotes and quasiquotes
-* compile time reflections
+* What is a macro method?
+* Expressions and types
+* Symbols
+* Examples showing similarities and differences when solving the same small problems
 * I will focus on examples that I saw while maintaining my libraries
 * I will NOT focus on macro annotations
 
 [NOTE.speaker]
 --
-TODO
+We will demonstrate these concepts using Scala CLI scripts.
 --
 
 == What is macro method?
@@ -202,12 +202,40 @@ Scala 2 contains a special value for what was before macro, and Scala 3 requires
 
 === !
 
-TODO: error reporting (07_...)
+[%step]
+[cols="1,1",%autowidth]
+|===
+| Scala 2
+| Scala 3
+
+| ``c.enclosingPosition``
+| ``Position.ofMacroExpansion``
+
+| ``c.echo(pos, msg)`` or ``c.echo(msg)``
+| ``report.info(msg, pos)`` or ``report.info(msg)`` or ``report.info(msg, expr)``
+
+| ``c.warn(pos, msg)``
+| ``report.warning(msg, pos)`` or ``report.warning(msg)`` or ``report.warning(msg, expr)``
+
+| ``c.error(pos, msg)``
+| ``report.error(msg, pos)`` or ``report.error(msg)`` or ``report.error(msg, expr)``
+
+| ``c.abort(pos, msg)``
+| ``report.errorAndAbort(msg, pos)`` or ``report.errorAndAbort(msg)`` or ``report.errorAndAbort(msg, expr)``
+
+|===
+
+[NOTE.speaker]
+--
+Show example of ``07_reporting``.
+
+Explain why ``println`` is not a good idea.
+--
 
 == Analyzing types
 
 [%step]
-Symbol - a reference to definition (type/class/val/var/method/parameter/binding...).
+Symbol - a reference to definition (type, class, val, var, method, parameter, binding...).
 
 === !
 
@@ -309,31 +337,49 @@ Mention SIP-47 Clause Interleaving.
 Example:
 
 [%step]
-- take a type of a ``case class``/``sealed trait``
-- try to create ``List`` with a value of this type
-  - for sealed, create all children that can be created
-  - for case class create a value if all params has default value
+* take a type of a ``case class``/``sealed trait``
+* try to create ``List`` with a value of this type
+  * for sealed, create all children that can be created
+  * for case class create a value if all params has default value
 
-== Building expressions
+=== !
 
-TODO: call constructor (using implicits as params)
-TODO: pattern maching
+== Skeletons in the closet
 
-== Skeletons in a closet
+[NOTE.speaker]
+--
+Examples:
 
-== TODO
+1. Scala 2's companion object issue
+2. Scala 2's knownDirectChildren and incremental compiler
+3. Scala 3's typeSignatureIn
+4. Scala 3's public
+5. Scala 3's fresh name
+
+Also mention that:
+1. default values in case class have different names (``apply`` vs ``<init>``)
+2. parameterless ``case`` is not ``case object``
+3. ``@BeanProperty`` difference
+
+--
+
+== Other differences
+
+[NOTE.speaker]
+--
+Show whitebox macros and transparent inline defs.
+
+Show macro bundles on Scala 2, and what Scala 3 has.
+--
+
+== Summary
 
 [%step]
-* show that code can be checked by linters/for encapsulation
-* explain reporting - println vs blessed options
-* some nice graphs illustrating relationships with Symbols (e.g. type parameters, value parameters, returned value)
-* companion objects and default values (nice example with messed up Scala 2 companion, difference in naming)
-* children vs knownDirectSubtypes
-* generics (typeSignature, typeSignatureIn vs ...)
-* Scala 2 quasiquotes for... things vs... virtually nothing (type matches and that's it)
-* implicit summoning
-* macro bundles vs ... nothing really
-* whitebox macros vs transparent inline def (Scala 2.12 requores Tree)
+* basic concepts - typed and untyped expressions and types, AST, Symbols - are the same
+* Scala 2 APIs have more utilities, Scala 3 had more consistent utilities
+* both implementations have enough features to build upon them
+* both implementations have rather basic documentation
+* examples and slides available on my GitHub (GitHub.com/MateuszKubuszok)
 
 == Questions?
 
