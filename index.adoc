@@ -5,6 +5,16 @@
 
 Mateusz Kubuszok
 
+[NOTE.speaker]
+--
+Preparations:
+- open Chimney project (compiling!, 0.8.2)
+- open Pipez (compiling!, 0.5.1)
+- open terminal - 1 tab for examples, 1 for Chimney, 1 for Pipez
+- arrange them to easily jump from one to another
+- put speakers notes on laptop
+--
+
 == About me
 
 [%step]
@@ -17,7 +27,7 @@ Mateusz Kubuszok
 
 [NOTE.speaker]
 --
-Every presentation should start with some excuse, why you even are here
+Every presentation should start with some excuse, why you even are here.
 --
 
 == Agenda
@@ -50,7 +60,7 @@ We'll explain what we mean by that in the next few examples. We'll show how macr
 1. Calling the impl method is the only thing we are allowed to do.
 2. ``Expr[A]`` is the AST of code that represents the value of type ``A``.
 3. Why Scala 2 call it blackbox will be explained later.
-4. We can already notice one difference: Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.
+4. Scala 3 has "global" expressions while Scala 2 use path-dependent types for them.
 
 [NOTE.speaker]
 --
@@ -82,10 +92,27 @@ We are ancouraged to use full qualified name in Scala 2 as it doesn't understand
 
 If we used private method, compilation would fail since external code cannot access private methods (``04_calling_private``).
 
-This is a first
+This is the first example showing why I consider macro method to be a codegen rather than a method.
 --
 
 === Let's try printing some parameters
+
+[NOTE.speaker]
+--
+At first let's print some parameters to see how printing works (``05_print_param``).
+
+Then let's try to print ``this`` (``06_print_this``).
+
+Scala 2 require the same names and positions of parametrs in macro and in called impl definition.
+
+Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).
+
+Typed representations exists to be passed around (as params/returns/implicits), untyped can be actually worked with.
+
+Scala 2 contains a special value for what was before macro, and Scala 3 requires us to pass it explicitly.
+--
+
+=== !
 
 [%step]
 [cols="1,1",%autowidth]
@@ -115,10 +142,6 @@ This is a first
 
 [NOTE.speaker]
 --
-At first let's print some parameters to see how printing works (``05_print_param``).
-
-Then let's try to print ``this`` (``06_print_this``).
-
 Scala 2 require the same names and positions of parametrs in macro and in called impl definition.
 
 Scala 2 require path-dependent type for WeakTypeTag as well, Scala 3 does not require it (like with Expr).
@@ -202,7 +225,6 @@ Scala 2 contains a special value for what was before macro, and Scala 3 requires
 
 === !
 
-[%step]
 [cols="1,1",%autowidth]
 |===
 | Scala 2
@@ -305,7 +327,7 @@ I can explain that Symbol is basically anything which can have a name or handle 
 | ``List(List(value a, value b))``
 | ``List(List(val a, val b))``
 
-| ``def method(a: Int)(b: String): Unit``
+| ``def method(a: Int)(b:String):Unit``
 | ``List()``
 | ``List(List(value a), List(value b))``
 | ``List(List(val a), List(val b))``
@@ -339,10 +361,15 @@ Example:
 [%step]
 * take a type of a ``case class``/``sealed trait``
 * try to create ``List`` with a value of this type
-  * for sealed, create all children that can be created
-  * for case class create a value if all params has default value
+  * for ``case class`` create a value if all params has default value
+  * for ``sealed``, create all children that can be created (``case object``s lub ``case class``es like above)
 
-=== !
+[NOTE.speaker]
+--
+Show example (``10_example``).
+
+Show that while it looks ok, it doesn't support all cases.
+--
 
 == Skeletons in the closet
 
@@ -351,19 +378,54 @@ Example:
 Examples:
 
 1. Scala 2's companion object issue
+  - TODO: failing test
+  - Chimney, Scala 2, ``ProductTypesPlatform.scala:224``
 2. Scala 2's knownDirectChildren and incremental compiler
-3. Scala 3's typeSignatureIn
-4. Scala 3's public
-5. Scala 3's fresh name
+  - TODO: failing test
+3. Weird bugs
+  - TODO: failing test
+  - Pipez, Scala 2, ``Macros.scala:115``
+4. Scala 3's typeSignatureIn
+  - Chimney, Scala 2, ``TypesPlatform.scala:24``
+  - Chimney, Scala 3, ``TypesPlatform.scala:29``
+5. Scala 3's public
+  - ???
+6. Scala 3's fresh name
+  - ???
 
 Also mention that:
 1. default values in case class have different names (``apply`` vs ``<init>``)
 2. parameterless ``case`` is not ``case object``
 3. ``@BeanProperty`` difference
-
 --
 
 == Other differences
+
+[%step]
+[cols="1,1,1,1",%autowidth]
+|===
+| Scala 2
+|
+| Scala 3
+|
+
+| ``def method = macro methodImpl``
+| ``def methodImpl(c.blackbox.Context): c.Expr[...]``
+| ``inline def method = ${ methodImpla }``
+| ``def methodImpl(using Quotes): Expr[...]``
+
+| ``def method = macro methodImpl``
+| ``def methodImpl(c.whitebox.Context): c.Expr[...]``
+| ``transparent inline def method = ${ methodImpla }``
+| ``def methodImpl(using Quotes): Expr[...]``
+
+| "macro bundle"
+|
+| no counterpart
+|
+
+|===
+
 
 [NOTE.speaker]
 --
